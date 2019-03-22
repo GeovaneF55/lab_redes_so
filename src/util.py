@@ -3,7 +3,7 @@
 import socket
 import enum
 
-Turn = enum.Enum('Turn', 'PLAYER1 PLAYER2')
+Player = enum.Enum('Player', 'ONE TWO')
 
 def get_address():
     """ Retorna o endereço IP local da máquina . """
