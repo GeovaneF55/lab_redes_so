@@ -15,3 +15,7 @@ def init_server():
         # Cada sala é criada como uma nova thread.
         threading.Thread(target=create_room, args=(i,)).start()
         time.sleep(0.1)
+
+
+if __name__ == '__main__':
+    init_server()
