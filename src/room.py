@@ -10,71 +10,81 @@ import util
 
 def check_board(board):
     winner = check_rows(board)
-    if winner == None:
+    if winner == util.Player.NONE.value:
         winner = check_cols(board)
 
-        if winner == None:
+        if winner == util.Player.NONE.value:
             winner = check_diags(board)
 
     return winner
 
 def check_rows(board):
-    winner = None
-    i = 0
+    winner = util.Player.NONE
 
-    while not winner:
-        player1 = reduce(lambda acc, el: acc + (el == 'x'), board[i], 0)
+    for i in range(len(board)):
+        player1 = board[i].count('X')
 
         if player1 == 3:
             winner = util.Player.ONE
         else:
-            player2 = reduce(lambda acc, el: acc + (el == 'o'), board[i], 0)
+            player2 = board[i].count('O')
             
             if player2 == 3:
                 winner = util.Player.TWO
 
-        i += 1
-
-    return winner       
+    return winner.value     
 
 def check_cols(board):
-    cols = np.transpose(board)
-    winner = None
-    i = 0
+    winner = util.Player.NONE
+    cols = [[row[i] for row in board] for i in range(len(board[0]))]
 
-    while not winner:
-        player1 = reduce(lambda acc, el: acc + (el == 'x'), cols[i], 0)
+    for i in range(len(cols)):
+
+        player1 = cols[i].count('X')
 
         if player1 == 3:
             winner = util.Player.ONE
         else:
-            player2 = reduce(lambda acc, el: acc + (el == 'o'), cols[i], 0)
+
+            player2 = cols[i].count('O')
             
             if player2 == 3:
                 winner = util.Player.TWO
 
-        i += 1
-
-    return winner
+    return winner.value
 
 def check_diags(board):
+    winner = util.Player.NONE
     principal = np.diag(board)
     secondary = np.diag(np.fliplr(board))
-    winner = None
 
-    p1_princ = reduce(lambda acc, el: acc + (el == 'x'), principal, 0)
-    p1_sec = reduce(lambda acc, el: acc + (el == 'x'), secondary, 0)
+    unique, counts = np.unique(principal, return_counts=True)
+    principal = dict(zip(unique, counts))
+
+    unique, counts = np.unique(secondary, return_counts=True)
+    secondary = dict(zip(unique, counts))
+
+    p1_princ = principal['X'] if 'X' in principal else 0
+    p1_sec = secondary['X'] if 'X' in secondary else 0
 
     if p1_princ == 3 or p1_sec == 3:
         winner = util.Player.ONE
     else:
-        p2_princ = reduce(lambda acc, el: acc + (el == '0'), principal, 0)
-        p2_sec = reduce(lambda acc, el: acc + (el == 'o'), secondary, 0)
+        p2_princ = principal['O'] if 'O' in principal else 0
+        p2_sec = secondary['O'] if 'O' in secondary else 0
         
         if p2_princ == 3 or p2_sec == 3:
             winner = util.player.TWO
 
-    return winner
+    return winner.value
+
+def mark_board(board, player_id, x, y):
+    if player_id == util.Player.ONE.value:
+        board[x][y] = 'X'
+    else: 
+        board[x][y] = 'O'
+
+    return board[x][y]
 
 def prepare_game(conn1, conn2):
     """ Realiza todos os preparativos necessários para
@@ -87,21 +97,68 @@ def prepare_game(conn1, conn2):
     # Tabuleiro de jogo referente ao servidor.
     board = [[' ' for _ in range(3)] for _ in range(3)]
 
+    # Jogador atual
+    current = util.Player.ONE.value
+
     # Envia para ambos os jogadores um parâmetro indicando quem é o jogador.
     conn1.send(struct.pack('!I', util.Player.ONE.value))
     conn2.send(struct.pack('!I', util.Player.TWO.value))
 
-    # Envia para ambos os jogadores um parâmetro indicando qual o jogador
-    # inicial.
-    conn1.send(struct.pack('!I', util.Player.ONE.value))
-    conn2.send(struct.pack('!I', util.Player.ONE.value))
-
-    # Iniciando novo jogo.
-    start_game(conn1, conn2, board)
-
+    # Iniciar novo jogo.
+    start_game(conn1, conn2, board, current)
     
-def start_game(conn1, conn2, board):
-    pass
+def start_game(conn1, conn2, board, current):
+    winner = util.Player.NONE.value
+
+    while winner is util.Player.NONE.value:
+        # Envia para ambos os jogadores um parâmetro indicando qual o jogador
+        # atual.
+        conn1.send(struct.pack('!I', current))
+        conn2.send(struct.pack('!I', current))
+
+        # Sequência de mensagens caso o Jogador atual seja o primeiro
+        if current == util.Player.ONE.value:
+
+            length, = struct.unpack('!I', conn1.recv(4))
+            move = json.loads(conn1.recv(length).decode())
+
+            mark_board(board, current, move['x'], move['y'])
+
+            data = json.dumps({
+                'x': move['x'], 
+                'y': move['y']
+            }).encode()
+
+            conn2.send(struct.pack('!I', len(data)))
+            conn2.send(data)
+
+            # Altera o jogador atual
+            current = util.Player.TWO.value
+
+        # Sequência de mensagens caso o Jogador atual seja o segundo
+        else:
+
+            length, = struct.unpack('!I', conn2.recv(4))
+            move = json.loads(conn2.recv(length).decode())
+
+            mark_board(board, current, move['x'], move['y'])
+
+            data = json.dumps({
+                'x': move['x'], 
+                'y': move['y']
+            }).encode()
+
+            conn1.send(struct.pack('!I', len(data)))
+            conn1.send(data)
+
+            # Altera o jogador atual
+            current = util.Player.ONE.value
+
+        # Envia mensagem aos jogadores se houver vencedor
+        winner = check_board(board)
+
+        conn1.send(struct.pack('!I', winner))
+        conn2.send(struct.pack('!I', winner))
 
 
 def create_room(i):
@@ -137,8 +194,10 @@ def create_room(i):
         print('Sala {}: Jogador 2 ({}): conectado.'.format(i, client[0]))
         print('Sala {}: Preparando novo jogo...'.format(i))
 
-        # Iniciar jogo.
+        # Preparar jogo.
         prepare_game(conn1, conn2)
+
+        print('Sala {}: Jogo finalizado...'.format(i))
 
         # Jogo finalizado, fechando conexões para possibilitar novos jogadores.
         conn1.close()
