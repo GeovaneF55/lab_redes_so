@@ -12,9 +12,9 @@ def init_server():
     # Quantidade de salas (threads).
     n = 3
 
-    for i in range(1, n):
+    for i in range(n):
         # Cada sala é criada como uma nova thread.
-        threading.Thread(target=create_room, args=(i, )).start()
+        threading.Thread(target=create_room, args=(i + 1, )).start()
         time.sleep(0.1)
 
 if __name__ == '__main__':
