@@ -2,7 +2,6 @@
 
 from functools import reduce
 import json
-import numpy as np
 import socket
 import struct
 
@@ -75,23 +74,18 @@ def check_diags(board):
     """
 
     winner = util.Player.NONE
-    principal = np.diag(board)
-    secondary = np.diag(np.fliplr(board))
+    
+    principal = [ row[i] for i,row in enumerate(board) ]
+    secondary = [ row[-i-1] for i,row in enumerate(board) ]
 
-    unique, counts = np.unique(principal, return_counts=True)
-    principal = dict(zip(unique, counts))
-
-    unique, counts = np.unique(secondary, return_counts=True)
-    secondary = dict(zip(unique, counts))
-
-    p1_princ = principal['X'] if 'X' in principal else 0
-    p1_sec = secondary['X'] if 'X' in secondary else 0
+    p1_princ = principal.count('X')
+    p1_sec = secondary.count('X')
 
     if p1_princ == 3 or p1_sec == 3:
         winner = util.Player.ONE
     else:
-        p2_princ = principal['O'] if 'O' in principal else 0
-        p2_sec = secondary['O'] if 'O' in secondary else 0
+        p2_princ = principal.count('O')
+        p2_sec = secondary.count('O')
         
         if p2_princ == 3 or p2_sec == 3:
             winner = util.player.TWO
