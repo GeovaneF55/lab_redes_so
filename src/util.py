@@ -28,3 +28,18 @@ def get_address():
             sock.close()
 
         return address
+
+
+def mark_board(board, player_id, x, y):
+    """ Marca a opção do jogador no tabuleiro. 
+    
+    @param board Tabuleiro do jogo.
+    @param player_id Identificador do jogador.
+    @param x Coordenada <x> do tabuleiro.
+    @param y Coordenada <y> do tabuleiro.
+    """
+
+    if Player(player_id) == Player.ONE:
+        board[x][y] = 'X'
+    else: 
+        board[x][y] = 'O'
